@@ -10,7 +10,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import and run the dashboard
-from src.dashboard.main import app
+from dashboard.main import app
 
 if __name__ == "__main__":
     print("📊 Starting Cement Plant Optimization Dashboard...")
@@ -18,4 +18,4 @@ if __name__ == "__main__":
     print("📚 API Documentation: http://localhost:8000/docs")
     print("=" * 60)
     
-    app.run_server(debug=True, host='0.0.0.0', port=8050)
+    app.run(debug=True, host='0.0.0.0', port=8050)
