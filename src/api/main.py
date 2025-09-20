@@ -12,6 +12,7 @@ import json
 import uuid
 import sys
 import os
+from src.services.llm_service import generate_supervisor_report
 
 # Add the project root to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -20,7 +21,7 @@ sys.path.insert(0, project_root)
 
 # Now import the modules
 try:
-    from src.models.data_models import (
+    from src.schemas.data_models import (
         RawMaterialData, GrindingData, ClinkerizationData, QualityData,
         OptimizationResult, PlantStatus
     )
@@ -61,6 +62,24 @@ data_pipeline = DataPipeline(settings)
 # In-memory storage for demo
 optimization_results = []
 plant_status_history = []
+
+
+@app.post("/generate-report", response_model=str)
+async def generate_llm_report(result: OptimizationResult):
+    """
+    Takes an optimization result and uses an LLM to generate a
+    human-readable summary report.
+    """
+    try:
+        # Call the dedicated service to handle the LLM logic
+        report = await generate_supervisor_report(result)
+        return report
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"An unexpected error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while generating the report.")
+
 
 # API Endpoints (without authentication)
 @app.post("/optimize/raw-materials", response_model=OptimizationResult)
@@ -122,7 +141,7 @@ async def optimize_clinkerization(
 
 @app.post("/optimize/quality", response_model=OptimizationResult)
 async def optimize_quality(
-    data: Dict[str, Any],
+    data: QualityData,
     background_tasks: BackgroundTasks
 ):
     """Optimize product quality"""
