@@ -220,7 +220,7 @@ async def update_plant_status():
 if __name__ == "__main__":
     import uvicorn
     print("🚀 Starting Cement Plant Optimization API...")
-    print("📚 API Documentation: http://localhost:8000/docs")
-    print("🔗 Health Check: http://localhost:8000/health")
+    print("📚 API Documentation: http://localhost:8080/docs")
+    print("🔗 Health Check: http://localhost:8080/health")
     print("=" * 60)
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
