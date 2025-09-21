@@ -3,31 +3,31 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   args: [
     'build',
-    '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/cement-plant-repo/cement-api:latest',
+    '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/CementPlantOptimization/cement-api:latest',
     '-f', 'api.Dockerfile',
     '.'
   ]
 
 # Step 2: Push the API Docker image to Artifact Registry
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/cement-plant-repo/cement-api:latest']
+  args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/CementPlantOptimization/cement-api:latest']
 
 # Step 3: Build the Dashboard Docker image
 - name: 'gcr.io/cloud-builders/docker'
   args: [
     'build',
-    '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/cement-plant-repo/cement-dashboard:latest',
+    '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/CementPlantOptimization/cement-dashboard:latest',
     '-f', 'dashboard.Dockerfile',
     '.'
   ]
 
 # Step 4: Push the Dashboard Docker image to Artifact Registry
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/cement-plant-repo/cement-dashboard:latest']
+  args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/CementPlantOptimization/cement-dashboard:latest']
 
 images:
-- '$_REGION-docker.pkg.dev/$PROJECT_ID/cement-plant-repo/cement-api:latest'
-- '$_REGION-docker.pkg.dev/$PROJECT_ID/cement-plant-repo/cement-dashboard:latest'
+- '$_REGION-docker.pkg.dev/$PROJECT_ID/CementPlantOptimization/cement-api:latest'
+- '$_REGION-docker.pkg.dev/$PROJECT_ID/CementPlantOptimization/cement-dashboard:latest'
 
 substitutions:
   _REGION: 'asia-south1'
