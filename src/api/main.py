@@ -151,7 +151,7 @@ async def optimize_quality(
     try:
         result = await optimizer.optimize_quality(data)
         result.id = str(uuid.uuid4())
-        
+        result.report = await generate_llm_report(result)
         optimization_results.append(result)
         
         # Update plant status
@@ -160,6 +160,8 @@ async def optimize_quality(
         return result
     except Exception as e:
         logger.error(f"Error optimizing quality: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/status", response_model=PlantStatus)
