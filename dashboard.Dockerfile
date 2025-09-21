@@ -1,19 +1,19 @@
 # Use an official Python runtime as a parent image
 FROM python:3.12-slim
 
-# Set the working directory in the container
+# Set the working directory
 WORKDIR /app
 
-# Copy the requirements file and install dependencies
+# Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the dashboard code and the APIClient helper
+# Copy dashboard code
 COPY dashboard ./dashboard
 COPY run_dashboard.py .
 
-# Expose the port the app runs on (Dash default is 8050)
-EXPOSE 8050
+# Expose port (for documentation only, Cloud Run uses $PORT)
+EXPOSE 8080
 
-# Command to run the app using Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8050", "dashboard.main:server"]
+# Run the Dash app with Gunicorn, binding to Cloud Run's $PORT
+CMD ["gunicorn", "--bind", "0.0.0.0:${PORT}", "dashboard.main:server"]
