@@ -77,6 +77,8 @@ class OptimizationResult(BaseModel):
     energy_savings: float = Field(..., ge=0.0)
     quality_improvement: float = Field(..., ge=0.0, le=1.0)
     sustainability_score: float = Field(..., ge=0.0, le=1.0)
+    report: Optional[str] = None
+
 
 class PlantStatus(BaseModel):
     timestamp: datetime

@@ -91,6 +91,7 @@ async def optimize_raw_materials(
     try:
         result = await optimizer.optimize_raw_materials(data)
         result.id = str(uuid.uuid4())
+        result.report = await generate_llm_report(result)
         optimization_results.append(result)
         
         # Update plant status
@@ -110,6 +111,7 @@ async def optimize_grinding(
     try:
         result = await optimizer.optimize_grinding(data)
         result.id = str(uuid.uuid4())
+        result.report = await generate_llm_report(result)
         optimization_results.append(result)
         
         # Update plant status
@@ -129,6 +131,7 @@ async def optimize_clinkerization(
     try:
         result = await optimizer.optimize_clinkerization(data)
         result.id = str(uuid.uuid4())
+        result.report = await generate_llm_report(result)
         optimization_results.append(result)
         
         # Update plant status
@@ -148,6 +151,7 @@ async def optimize_quality(
     try:
         result = await optimizer.optimize_quality(data)
         result.id = str(uuid.uuid4())
+        
         optimization_results.append(result)
         
         # Update plant status
