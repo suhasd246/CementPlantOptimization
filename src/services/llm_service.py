@@ -4,7 +4,7 @@ import logging
 from ..schemas.data_models import OptimizationResult
 
 # Configure your API key (best to use environment variables)
-GOOGLE_API_KEY = "AIzaSyBbUAFKJynjHuEfynvARR-0IId4tStGU3Y" 
+GOOGLE_API_KEY = "AIzaSyBfE1HM0qVu0Vw1wa6xJKTmNtP9xQJBiQc" 
 genai.configure(api_key=GOOGLE_API_KEY)
 
 logger = logging.getLogger(__name__)

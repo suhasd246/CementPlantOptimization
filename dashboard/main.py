@@ -1,5 +1,5 @@
 import dash
-from dash import dcc, html, Input, Output, State, ctx
+from dash import dcc, html, Input, Output, State, ctx, dash_table
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import pandas as pd
@@ -13,6 +13,14 @@ API_BASE_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
 
 class APIClient:
     """A robust client to interact with the FastAPI backend."""
+    def get_optimization_history(self):
+        try:
+            response = requests.get(f"{API_BASE_URL}/optimization-history", timeout=5)
+            response.raise_for_status()
+            return response.json()
+        except (requests.exceptions.RequestException, json.JSONDecodeError):
+            return []
+
     def get_health(self):
         try:
             response = requests.get(f"{API_BASE_URL}/health", timeout=3)
@@ -50,7 +58,7 @@ class APIClient:
     def optimize_quality(self, data: dict): return self._run_optimization("/optimize/quality", data)
 
 # --- App Initialization ---
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME])
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME], suppress_callback_exceptions=True)
 app.title = "Cement Plant Optimization Dashboard"
 api_client = APIClient()
 
@@ -124,7 +132,7 @@ app.layout = dbc.Container([
                 ], always_open=False)
             ])
         ], className="shadow-sm"), md=6),
-        
+       
         # Results Section
         dbc.Col(dbc.Card([
             dbc.CardHeader("🤖 AI Optimization Result"),
@@ -136,6 +144,26 @@ app.layout = dbc.Container([
             )
         ], className="shadow-sm"), md=6),
     ], className="mb-4"),
+    ## History table
+     dbc.Row([
+        dbc.Col(dbc.Card([
+            dbc.CardHeader("📜 AI Optimization Log"),
+            dbc.CardBody(
+                dash_table.DataTable(
+                    id='optimization-history-table',
+                    columns=[
+                        {"name": "Time", "id": "timestamp"},
+                        {"name": "Process", "id": "process"},
+                        {"name": "Recommendation", "id": "action"},
+                        {"name": "Confidence", "id": "confidence_score", "type": "numeric", "format": dash.dash_table.Format.Format(precision=1, scheme=dash.dash_table.Format.Scheme.percentage)},
+                    ],
+                    style_cell={'textAlign': 'left', 'padding': '5px'},
+                    style_header={'backgroundColor': '#f8f9fa', 'fontWeight': 'bold'},
+                    page_size=5, # Show 5 rows at a time
+                )
+                )
+            ], className="shadow-sm"))
+        ], className="mb-4"),
     
     dcc.Interval(id='interval-component', interval=10*1000, n_intervals=0),
     dcc.Store(id='optimization-store')
@@ -149,22 +177,54 @@ app.layout = dbc.Container([
     [Output('api-status', 'children'), Output('connection-alert', 'color'),
      Output('status-history-chart', 'figure'),
      Output('efficiency-metric', 'children'), Output('quality-metric', 'children'),
-     Output('sustainability-metric', 'children'), Output('alerts-metric', 'children')],
+     Output('sustainability-metric', 'children'), Output('alerts-metric', 'children'),
+     Output('optimization-history-table', 'data')], # New Output
     [Input('interval-component', 'n_intervals')]
 )
 def update_live_data(n):
-    # ... (This function's code is unchanged from the previous version) ...
     is_connected = api_client.get_health()
-    if not is_connected: return "Disconnected", "danger", {}, "-%", "-%", "-%", "-"
-    history = api_client.get_plant_status_history()
-    if not history: return "Connected", "success", {"layout": {"title": "No Plant History Data"}}, "-%", "-%", "-%", "-"
-    df = pd.DataFrame(history)
+    no_data_fig = {"layout": {"title": "API Disconnected - No Data"}}
+    no_data_kpis = ("-%", "-%", "-%", "-")
+    
+    if not is_connected:
+        return "Disconnected", "danger", no_data_fig, *no_data_kpis, []
+
+    # Fetch both history types
+    status_history = api_client.get_plant_status_history()
+    optimization_log = api_client.get_optimization_history()
+
+    # --- Process Optimization Log for the Table ---
+    log_data = []
+    if optimization_log:
+        for log in optimization_log:
+            # If there are recommendations, show the first one. Otherwise, show 'None'.
+            action = log['recommendations'][0]['action'] if log.get('recommendations') else "None"
+            log_data.append({
+                "timestamp": pd.to_datetime(log['timestamp']).strftime('%H:%M:%S'),
+                "process": log['process'].replace('_', ' ').title(),
+                "action": action,
+                "confidence_score": log['confidence_score']
+            })
+
+    # --- Process Status History for Charts and KPIs ---
+    if not status_history:
+        no_data_fig["layout"]["title"] = "No Plant History Data From API"
+        return "Connected", "success", no_data_fig, *no_data_kpis, log_data
+        
+    df = pd.DataFrame(status_history)
     df['timestamp'] = pd.to_datetime(df['timestamp']).dt.strftime('%H:%M:%S')
+
     latest = df.iloc[-1]
-    kpis = (f"{latest['overall_efficiency']:.1%}", f"{latest['quality_score']:.1%}", f"{latest['sustainability_score']:.1%}", str(latest['critical_alerts']))
-    fig = px.line(df, x='timestamp', y=['overall_efficiency', 'quality_score', 'sustainability_score'], title="Plant Performance Over Time", labels={'value': 'Score', 'variable': 'Metric'})
+    kpis = (
+        f"{latest['overall_efficiency']:.1%}", f"{latest['quality_score']:.1%}",
+        f"{latest['sustainability_score']:.1%}", str(latest['critical_alerts'])
+    )
+    
+    fig = px.line(df, x='timestamp', y=['overall_efficiency', 'quality_score', 'sustainability_score'],
+                  title="Plant Performance Over Time", labels={'value': 'Score', 'variable': 'Metric'})
     fig.update_layout(height=300, legend_title_text='Metrics', margin=dict(t=30, b=10))
-    return "Connected", "success", fig, *kpis
+    
+    return "Connected", "success", fig, *kpis, log_data
 
 # <-- MAJOR CHANGE: New callback for the new accordion buttons -->
 @app.callback(
