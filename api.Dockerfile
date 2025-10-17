@@ -16,4 +16,4 @@ EXPOSE 8000
 
 # Run the FastAPI app via Gunicorn + UvicornWorker
 # Using shell-form so $PORT will expand properly
-CMD gunicorn -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT src.api.main:app
+CMD exec gunicorn -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8000} src.api.main:app
