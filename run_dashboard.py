@@ -15,7 +15,7 @@ from dashboard.main import app
 if __name__ == "__main__":
     print("📊 Starting Cement Plant Optimization Dashboard...")
     print("🔗 Dashboard: http://localhost:8050")
-    print("📚 API Documentation: http://localhost:8080/docs")
+    print("📚 API Documentation: http://localhost:8000/docs")
     print("=" * 60)
     
     app.run(debug=True, host='0.0.0.0', port=8050)
