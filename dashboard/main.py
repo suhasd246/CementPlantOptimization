@@ -38,7 +38,7 @@ class APIClient:
 
     def _run_optimization(self, endpoint: str, data: dict):
         try:
-            response = requests.post(f"{API_BASE_URL}{endpoint}", json=data, timeout=15)
+            response = requests.post(f"{API_BASE_URL}{endpoint}", json=data, timeout=30)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:

@@ -15,7 +15,7 @@ async def generate_supervisor_report(result: OptimizationResult) -> str:
     using the Gemini LLM.
     """
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('gemini-2.5-flash')##'gemini-2.5-flash'
         
         prompt = f"""
         You are an expert Cement Plant Shift Supervisor AI. Your task is to write a concise, clear, and professional summary based on the following JSON data from our optimization engine.

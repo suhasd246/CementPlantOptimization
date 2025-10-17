@@ -12,8 +12,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY dashboard ./dashboard
 COPY run_dashboard.py .
 
-# Expose the port the app runs on (Dash default is 8050)
-EXPOSE 8050
-
 # Command to run the app using Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8050", "dashboard.main:server"]
+CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "dashboard.main:server"]
