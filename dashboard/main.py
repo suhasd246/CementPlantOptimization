@@ -9,7 +9,7 @@ import json
 import os
 
 # --- Configuration & API Client ---
-API_BASE_URL = os.getenv("API_URL", "http://127.0.0.1:8080")
+API_BASE_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
 
 class APIClient:
     """A robust client to interact with the FastAPI backend."""
