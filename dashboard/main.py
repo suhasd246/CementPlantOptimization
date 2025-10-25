@@ -139,7 +139,6 @@ app.layout = dbc.Container([
             dbc.CardBody(
                 dcc.Loading(id="loading-results", type="default", children=[
                     html.Div(id="optimization-results", children="Select a process and click optimize."),
-                    html.Div(id="llm-report-output", className="mt-3")
                 ])
             )
         ], className="shadow-sm"), md=6),
@@ -264,12 +263,11 @@ def run_optimizations(raw_clicks, grinding_clicks, clinker_clicks, quality_click
     return result
 
 @app.callback(
-    [Output('optimization-results', 'children'),
-     Output('llm-report-output', 'children')],
+    [Output('optimization-results', 'children')], # This can be a single item or a list
     [Input('optimization-store', 'data')]
 )
 def display_optimization_results(data):
-    # <-- NEW: A beautiful placeholder card for the initial state -->
+    # --- Placeholder logic ---
     placeholder = dbc.Card(
         dbc.CardBody([
             html.Div(className="text-center h-100 d-flex flex-column justify-content-center align-items-center", children=[
@@ -281,60 +279,42 @@ def display_optimization_results(data):
                 )
             ])
         ]),
-        className="h-100 border-0 bg-transparent" # Style to blend in
+        className="h-100 border-0 bg-transparent"
     )
 
     if not data:
-        return placeholder, "" # Return the placeholder on initial load
-    
+        return (placeholder,)  # <--- FIX: Added trailing comma
+
     if "error" in data:
-        return dbc.Alert(f"API Error: {data.get('error', 'Unknown error')}", color="danger"), ""
-    
+        return (dbc.Alert(f"API Error: {data.get('error', 'Unknown error')}", color="danger"),) # <--- FIX: Added trailing comma
+
     if not data.get('recommendations'):
-        return dbc.Alert("✅ No specific recommendations needed. Process is optimal.", color="success"), ""
-    
-    # This part for displaying the actual result remains the same
+        return (dbc.Alert("✅ No specific recommendations needed. Process is optimal.", color="success"),) # <--- FIX: Added trailing comma
+
+    # --- Build the unified result card ---
     rec = data['recommendations'][0]
+    report_text = data.get('report', "Report generation failed or is not available.")
+    
     result_card = dbc.Card([
         dbc.CardBody([
+            # --- Numerical Optimization Part ---
             html.H5(rec['action'], className="card-title text-primary"),
             html.P(f"Impact: {rec['impact']}", className="card-text"),
             dbc.Row([
                 dbc.Col(html.P([html.Strong("Current: "), f"{rec['current_value']:.2f}"])),
                 dbc.Col(html.P([html.Strong("Target: "), f"{rec['target_value']:.2f}"])),
             ]),
-            html.Hr(),
             html.Strong("Model Confidence"),
             dbc.Progress(label=f"{data['confidence_score']:.1%}", value=data['confidence_score']*100, className="mb-3"),
-            dbc.Button("📝 Generate Supervisor's Report", id="generate-report-btn", color="secondary", className="w-100")
+            
+            # --- LLM Report Part (Now included) ---
+            html.Hr(),
+            html.H6("📝 Operational Summary for Supervisor", className="card-subtitle"),
+            dcc.Markdown(report_text, className="border p-3 rounded bg-white mt-2")
         ])
     ], color="light")
-    return result_card, ""
-
-# <-- NEW CALLBACK: Triggered by the "Generate Report" button -->
-@app.callback(
-    Output('llm-report-output', 'children', allow_duplicate=True),
-    Input('generate-report-btn', 'n_clicks'),
-    State('optimization-store', 'data'),
-    prevent_initial_call=True
-)
-def generate_llm_report(n_clicks, data):
-    if not n_clicks or not data:
-        return dash.no_update
     
-    spinner = dbc.Spinner(color="primary")
-    
-    # Immediately show spinner
-    # In a real app, you might use a clientside callback for a faster spinner
-    
-    report_data = api_client.generate_supervisor_report(data)
-    
-    if "error" in report_data:
-        return dbc.Alert(f"LLM Error: {report_data['error']}", color="danger")
-        
-    report_text = report_data.get("report", "No report generated.")
-    
-    return dcc.Markdown(report_text, className="border p-3 rounded bg-white")
+    return (result_card,)  # <--- FIX: Added trailing comma
 
 
 # --- Run the App ---

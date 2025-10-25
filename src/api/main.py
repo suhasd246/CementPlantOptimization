@@ -64,23 +64,6 @@ optimization_results = []
 plant_status_history = []
 
 
-@app.post("/generate-report", response_model=str)
-async def generate_llm_report(result: OptimizationResult):
-    """
-    Takes an optimization result and uses an LLM to generate a
-    human-readable summary report.
-    """
-    try:
-        # Call the dedicated service to handle the LLM logic
-        report = await generate_supervisor_report(result)
-        return report
-    except ValueError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        logger.error(f"An unexpected error occurred: {str(e)}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred while generating the report.")
-
-
 # API Endpoints (without authentication)
 @app.post("/optimize/raw-materials", response_model=OptimizationResult)
 async def optimize_raw_materials(
@@ -91,7 +74,7 @@ async def optimize_raw_materials(
     try:
         result = await optimizer.optimize_raw_materials(data)
         result.id = str(uuid.uuid4())
-        result.report = await generate_llm_report(result)
+        result.report = await generate_supervisor_report(result)
         optimization_results.append(result)
         
         # Update plant status
@@ -111,7 +94,7 @@ async def optimize_grinding(
     try:
         result = await optimizer.optimize_grinding(data)
         result.id = str(uuid.uuid4())
-        result.report = await generate_llm_report(result)
+        result.report = await generate_supervisor_report(result)
         optimization_results.append(result)
         
         # Update plant status
@@ -131,7 +114,7 @@ async def optimize_clinkerization(
     try:
         result = await optimizer.optimize_clinkerization(data)
         result.id = str(uuid.uuid4())
-        result.report = await generate_llm_report(result)
+        result.report = await generate_supervisor_report(result)
         optimization_results.append(result)
         
         # Update plant status
@@ -151,7 +134,7 @@ async def optimize_quality(
     try:
         result = await optimizer.optimize_quality(data)
         result.id = str(uuid.uuid4())
-        result.report = await generate_llm_report(result)
+        result.report = await generate_supervisor_report(result)
         optimization_results.append(result)
         
         # Update plant status
