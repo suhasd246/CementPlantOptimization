@@ -12,29 +12,76 @@ logger = logging.getLogger(__name__)
 async def generate_supervisor_report(result: OptimizationResult) -> str:
     """
     Takes an optimization result and generates a human-readable summary
-    using the Gemini LLM.
+    using the Gemini LLM with a robust, one-shot prompt.
     """
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')##'gemini-2.5-flash'
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        rec = result.recommendations[0] if result.recommendations else None
+        if not rec:
+            return "**No recommendations available for this process.**"
+
+        # --- REFINED HIGH-INSIGHT ONE-SHOT PROMPT ---
         
         prompt = f"""
-        You are an expert Cement Plant Shift Supervisor AI. Your task is to write a concise, clear, and professional summary based on the following JSON data from our optimization engine.
+        You are an expert Cement Plant Shift Supervisor AI. Your task is to translate technical JSON data into a clear, professional, and *insightful* summary for a non-technical plant operator.
 
-        **Instructions:**
-        1. Start with a clear headline (e.g., "Operational Summary for Clinkerization").
-        2. In a paragraph, explain the current situation in simple terms.
-        3. Use a bulleted list to clearly state the recommended actions.
-        4. Mention the potential impact (e.g., energy savings, quality improvement).
-        5. Maintain a confident and professional tone.
+        ---
+        **EXAMPLE**
 
-        **Optimization Data:**
+        **JSON Data:**
+        {{
+          "process": "grinding",
+          "recommendations": [
+            {{
+              "parameter": "mill_power",
+              "action": "Optimize mill speed and grinding media",
+              "current_value": 4100.0,
+              "target_value": 3950.0,
+              "priority": "medium",
+              "impact": "Reduces energy use without harming product fineness.",
+              "estimated_savings": 0.08,
+              "implementation_time": 60
+            }}
+          ],
+          "expected_improvement": 0.05,
+          "confidence_score": 0.98,
+          "energy_savings": 0.08,
+          "quality_improvement": 0.02,
+          "sustainability_score": 0.81
+        }}
+
+        **Generated Report:**
+        **Operational Summary for Grinding**
+
+        The AI has identified a key optimization opportunity in the grinding circuit. Our mill power is currently high at **4100.0 units**, while the optimal target for efficiency is **3950.0 units**. This over-consumption is a primary driver of unnecessary energy costs. The system is **98% confident** in this assessment (based on the 'confidence_score').
+
+        **Recommended Actions:**
+        * **Action:** Optimize mill speed and grinding media.
+        * **Reason:** This will reduce energy use without harming product fineness (from the 'impact' field).
+        * **Priority:** MEDIUM
+        * **Est. Time:** 60 minutes
+
+        **Expected Impact:**
+        * **Overall Process Improvement:** This single change is projected to boost the grinding process efficiency score by **5%** (from 'expected_improvement').
+        * **Energy Savings:** We project an **8% reduction** in energy consumption for this stage.
+        * **Quality & Sustainability:** This will also lead to a **2% improvement** in product quality and support our plant's high sustainability score (currently at 0.81).
+        ---
+
+        **ACTUAL TASK**
+
+        **JSON Data:**
         {result.model_dump_json(indent=2)}
+
+        **Generated Report:**
         """
         
-        response = model.generate_content(prompt)
+        response = await model.generate_content_async(prompt)
         return response.text
         
     except Exception as e:
         logger.error(f"Error communicating with LLM: {str(e)}")
-        # Return a user-friendly error message or re-raise the exception
-        raise ValueError("Failed to generate report from LLM.")
+        return (
+            "**Error: Could not generate supervisor's report.**\n\n"
+            f"An error occurred while communicating with the AI model: {str(e)}"
+        )
