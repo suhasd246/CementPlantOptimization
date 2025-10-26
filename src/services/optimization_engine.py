@@ -1,4 +1,4 @@
-# ~/Documents/cement-operations-optimization/src/services/optimization_engine.py
+# ~/src/services/optimization_engine.py
 import asyncio
 import logging
 from datetime import datetime
@@ -20,343 +20,397 @@ ARTIFACTS_DIR  = os.path.join(project_root, 'artifacts')
 class CementPlantOptimizer:
     def __init__(self):
         self.optimization_history = []
-        # --- Load Raw Materials Artifacts ---
-        try:
-            logger.info("Loading Raw Materials artifacts...")
-            self.raw_materials_model = joblib.load(os.path.join(ARTIFACTS_DIR, 'raw_materials_model.pkl'))
-            self.raw_materials_encoder = joblib.load(os.path.join(ARTIFACTS_DIR, 'raw_materials_encoder.pkl'))
-            self.raw_materials_regressor = joblib.load(os.path.join(ARTIFACTS_DIR, 'raw_materials_regressor.pkl'))
-            self.raw_materials_features = [
-                'limestone_quality', 'clay_content', 'iron_ore_grade', 'moisture_content', 'temperature', 
-                'flow_rate', 'psd_1', 'psd_2', 'psd_3', 'psd_4', 'psd_5'
-            ]
-            logger.info("✅ Raw Materials artifacts loaded.")
-        except FileNotFoundError:
-            logger.error("A Raw Materials model file was not found. Please run the training script.")
-            self.raw_materials_model = None
+        
+        # --- Define Feature Lists ---
+        self.raw_materials_features = [
+            'limestone_quality', 'clay_content', 'iron_ore_grade', 'moisture_content',
+            'temperature', 'flow_rate', 
+            'psd_1', 'psd_2', 'psd_3', 'psd_4', 'psd_5', 'psd_mean', 'psd_std_dev'
+        ]
+        self.grinding_features = [
+            'mill_power', 'feed_rate', 'product_fineness', 'energy_consumption',
+            'temperature', 'vibration_level', 'noise_level', 'specific_energy'
+        ]
+        self.clinkerization_features = [
+            'kiln_temperature', 'residence_time', 'fuel_consumption', 
+            'alternative_fuel_ratio', 'clinker_quality', 
+            'exhaust_gas_temperature', 'oxygen_content'
+        ]
+        self.quality_features = [
+            'compressive_strength', 'fineness', 'consistency', 
+            'setting_time', 'temperature', 'humidity', 'gypsum_added'
+        ]
 
-        # --- Load Grinding Artifacts ---
+        # --- Load All Models ---
+        self.models = {}
         try:
-            logger.info("Loading Grinding artifacts...")
-            self.grinding_model = joblib.load(os.path.join(ARTIFACTS_DIR, 'grinding_model.pkl'))
-            self.grinding_encoder = joblib.load(os.path.join(ARTIFACTS_DIR, 'grinding_encoder.pkl'))
-            self.grinding_regressor = joblib.load(os.path.join(ARTIFACTS_DIR, 'grinding_regressor.pkl'))
-            self.grinding_features = [
-                'mill_power', 'feed_rate', 'product_fineness', 'energy_consumption',
-                'temperature', 'vibration_level', 'noise_level'
-            ]
-            logger.info("✅ Grinding artifacts loaded.")
-        except FileNotFoundError:
-            logger.error("A Grinding model file was not found. Please run the training script.")
-            self.grinding_model = None
+            logger.info("Loading all 20 optimization artifacts...")
+            
+            # Load Raw Materials Models
+            self.models['raw_materials_model'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'raw_materials_model.pkl'))
+            self.models['raw_materials_encoder'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'raw_materials_encoder.pkl'))
+            self.models['raw_materials_target_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'raw_materials_target_regressor.pkl'))
+            self.models['raw_materials_energy_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'raw_materials_energy_regressor.pkl'))
+            self.models['raw_materials_quality_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'raw_materials_quality_regressor.pkl'))
+            self.models['raw_materials_sustainability_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'raw_materials_sustainability_regressor.pkl'))
+            
+            # Load Grinding Models
+            self.models['grinding_model'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'grinding_model.pkl'))
+            self.models['grinding_encoder'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'grinding_encoder.pkl'))
+            self.models['grinding_target_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'grinding_target_regressor.pkl'))
+            self.models['grinding_energy_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'grinding_energy_regressor.pkl'))
+            self.models['grinding_quality_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'grinding_quality_regressor.pkl'))
+            self.models['grinding_sustainability_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'grinding_sustainability_regressor.pkl'))
 
-        # --- Load Clinkerization Artifacts ---
-        try:
-            logger.info("Loading Clinkerization artifacts...")
-            self.clinkerization_model = joblib.load(os.path.join(ARTIFACTS_DIR, 'clinkerization_model.pkl'))
-            self.clinkerization_encoder = joblib.load(os.path.join(ARTIFACTS_DIR, 'clinkerization_encoder.pkl'))
-            self.clinkerization_regressor = joblib.load(os.path.join(ARTIFACTS_DIR, 'clinkerization_regressor.pkl'))
-            self.clinkerization_features = [
-                'kiln_temperature', 'residence_time', 'fuel_consumption', 
-                'alternative_fuel_ratio', 'clinker_quality', 
-                'exhaust_gas_temperature', 'oxygen_content'
-            ]
-            logger.info("✅ Clinkerization artifacts loaded.")
-        except FileNotFoundError:
-            logger.error("A Clinkerization model file was not found. Please run the training script.")
-            self.clinkerization_model = None
+            # Load Clinkerization Models
+            self.models['clinkerization_model'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'clinkerization_model.pkl'))
+            self.models['clinkerization_encoder'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'clinkerization_encoder.pkl'))
+            self.models['clinkerization_target_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'clinkerization_target_regressor.pkl'))
+            self.models['clinkerization_energy_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'clinkerization_energy_regressor.pkl'))
+            self.models['clinkerization_quality_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'clinkerization_quality_regressor.pkl'))
+            self.models['clinkerization_sustainability_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'clinkerization_sustainability_regressor.pkl'))
 
-        # --- Load Quality Artifacts ---
-        try:
-            logger.info("Loading AI model for quality...")
-             # Quality
-            self.quality_model = joblib.load(os.path.join(ARTIFACTS_DIR, 'quality_model.pkl'))
-            self.quality_encoder = joblib.load(os.path.join(ARTIFACTS_DIR, 'quality_encoder.pkl'))
-            self.quality_regressor = joblib.load(os.path.join(ARTIFACTS_DIR, 'quality_regressor.pkl'))
-            self.quality_feature_names = ['compressive_strength', 'fineness', 'consistency', 'setting_time', 'temperature', 'humidity']
-            logger.info("✅ Quality model loaded successfully.")
-        except FileNotFoundError:
-            logger.error(f"Quality model not found at {ARTIFACTS_DIR}.")
-            self.quality_model = None
+            # Load Quality Models
+            self.models['quality_model'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'quality_model.pkl'))
+            self.models['quality_encoder'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'quality_encoder.pkl'))
+            self.models['quality_target_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'quality_target_regressor.pkl'))
+            self.models['quality_energy_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'quality_energy_regressor.pkl'))
+            self.models['quality_quality_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'quality_quality_regressor.pkl'))
+            self.models['quality_sustainability_regressor'] = joblib.load(os.path.join(ARTIFACTS_DIR, 'quality_sustainability_regressor.pkl'))
 
+            logger.info("✅ All 24 optimization artifacts loaded successfully.")
+            
+        except FileNotFoundError as e:
+            logger.error(f"FATAL: A model file was not found. Please re-run training script. Error: {e}")
+            self.models = {} # Clear models so the app fails gracefully
+    
+    def _get_model(self, name: str):
+        """Helper to safely get a model."""
+        model = self.models.get(name)
+        if model is None:
+            logger.error(f"Model '{name}' is not loaded.")
+            raise RuntimeError(f"Optimization model '{name}' is not available.")
+        return model
 
     async def optimize_raw_materials(self, data: RawMaterialData) -> OptimizationResult:
-        """Optimize raw material processing and grinding efficiency"""
-        if not self.raw_materials_model:
-            raise RuntimeError("Raw materials optimization model is not available.")
-
+        """Optimize raw material processing (New Ideology)"""
+        
         # 1. Prepare input data
         input_data = data.model_dump()
         psd_features = input_data.pop('particle_size_distribution')
-        for i, val in enumerate(psd_features):
-            input_data[f'psd_{i+1}'] = val
+        
+        # Flatten PSD
+        psd_dict = {f'psd_{i+1}': val for i, val in enumerate(psd_features)}
+        input_data.update(psd_dict)
+        
+        # Add summary PSD features
+        input_data['psd_mean'] = np.mean(psd_features)
+        input_data['psd_std_dev'] = np.std(psd_features)
+        
         input_df = pd.DataFrame([input_data])[self.raw_materials_features]
 
-        # 2. Get Action and Confidence from CLASSIFIER using predict_proba
-        probabilities = self.raw_materials_model.predict_proba(input_df)[0]
+        # 2. Get Action from CLASSIFIER (Diagnosis)
+        classifier = self._get_model('raw_materials_model')
+        encoder = self._get_model('raw_materials_encoder')
+        probabilities = classifier.predict_proba(input_df)[0]
         confidence = float(np.max(probabilities))
         action_encoded = np.argmax(probabilities)
-        predicted_action = self.raw_materials_encoder.inverse_transform([action_encoded])[0]
+        predicted_action = encoder.inverse_transform([action_encoded])[0]
         
         logger.info(f"AI Prediction: '{predicted_action}' with {confidence:.2%} confidence.")
 
+        # 3. DYNAMICALLY PREDICT KPIs
+        predicted_energy = float(self._get_model('raw_materials_energy_regressor').predict(input_df)[0])
+        predicted_quality = float(self._get_model('raw_materials_quality_regressor').predict(input_df)[0])
+        predicted_sustain = float(self._get_model('raw_materials_sustainability_regressor').predict(input_df)[0])
+        
+        if predicted_action == 'maintain_parameters':
+            predicted_energy = 0.0
+            predicted_quality = 0.0
+            # Keep predicted_sustain as the 'base' score
+        
+        # 4. Get Target Value (if action is needed)
         recommendations = []
-        estimated_savings = 0.0
-
-        if predicted_action != 'none':
-            # 3. Get DYNAMIC Target Value from REGRESSOR
-            predicted_target = self.raw_materials_regressor.predict(input_df)[0]
-
-            # Simplified lookup for other details; this could also be a model
-            action_details = {
-                'Increase pre-drying time': {'savings': 0.10, 'param': 'moisture_content'},
-                'Adjust crusher settings': {'savings': 0.08, 'param': 'particle_size'}
+        if predicted_action != 'maintain_parameters':
+            predicted_target = float(self._get_model('raw_materials_target_regressor').predict(input_df)[0])
+            
+            param_map = {
+                'Increase pre-drying time': 'moisture_content',
+                'Adjust crusher settings': 'particle_size' ,
+                'CRITICAL: Reduce moisture, high flow rate detected': 'moisture_content',
+                'HIGH: Adjust crusher settings, low-quality mix': 'particle_size'
             }
-            estimated_savings = action_details.get(predicted_action, {}).get('savings', 0.0)
-            parameter = action_details.get(predicted_action, {}).get('param', 'N/A')
+            parameter = param_map.get(predicted_action, 'N/A')
             current_val = getattr(data, parameter) if hasattr(data, parameter) else input_df['psd_1'].iloc[0]
 
             recommendations.append(OptimizationRecommendation(
                 parameter=parameter,
                 action=predicted_action,
                 current_value=current_val,
-                target_value=float(predicted_target),
+                target_value=predicted_target,
                 impact=f"Dynamic adjustment based on live data.",
                 priority=OptimizationLevel.HIGH if confidence > 0.8 else OptimizationLevel.MEDIUM,
-                estimated_savings=estimated_savings,
+                estimated_savings=predicted_energy,
                 implementation_time=30
             ))
 
-        # 4. Calculate DYNAMIC summary scores
-        expected_improvement = estimated_savings * confidence
-
+        # 5. Calculate FINAL summary scores
+        expected_improvement = (predicted_energy + predicted_quality) / 2.0
+        
         result = OptimizationResult(
             timestamp=datetime.now(),
             process=ProcessType.RAW_MATERIALS,
             recommendations=recommendations,
-            expected_improvement=expected_improvement,
+            expected_improvement=expected_improvement * confidence,
             confidence_score=confidence,
-            energy_savings=estimated_savings,
-            quality_improvement=0.05 * confidence,  # Base other scores on confidence
-            sustainability_score=0.78 * confidence
+            energy_savings=predicted_energy,
+            quality_improvement=predicted_quality,
+            sustainability_score=predicted_sustain
         )
         
         self.optimization_history.append(result)
         return result
     
     async def optimize_grinding(self, data: GrindingData) -> OptimizationResult:
-        """Optimize grinding process for energy efficiency"""
-        if not self.grinding_model:
-            raise RuntimeError("Grinding optimization model is not available.")
-
+        """Optimize grinding process (New Ideology)"""
+        
         # 1. Prepare input data
-        input_df = pd.DataFrame([data.model_dump()])[self.grinding_features]
+        input_data = data.model_dump()
+        input_data['specific_energy'] = input_data['energy_consumption'] / (input_data['feed_rate'] + 1e-6)
+        input_df = pd.DataFrame([input_data])[self.grinding_features]
 
-        # 2. Get Action and Confidence from CLASSIFIER
-        probabilities = self.grinding_model.predict_proba(input_df)[0]
+        # 2. Get Action from CLASSIFIER (Diagnosis)
+        classifier = self._get_model('grinding_model')
+        encoder = self._get_model('grinding_encoder')
+        probabilities = classifier.predict_proba(input_df)[0]
         confidence = float(np.max(probabilities))
         action_encoded = np.argmax(probabilities)
-        predicted_action = self.grinding_encoder.inverse_transform([action_encoded])[0]
+        predicted_action = encoder.inverse_transform([action_encoded])[0]
         
         logger.info(f"AI Grinding Prediction: '{predicted_action}' with {confidence:.2%} confidence.")
 
+        # 3. DYNAMICALLY PREDICT KPIs
+        predicted_energy = float(self._get_model('grinding_energy_regressor').predict(input_df)[0])
+        predicted_quality = float(self._get_model('grinding_quality_regressor').predict(input_df)[0])
+        predicted_sustain = float(self._get_model('grinding_sustainability_regressor').predict(input_df)[0])
+        
+        if predicted_action == 'maintain_parameters':
+            predicted_energy = 0.0
+            predicted_quality = 0.0
+
+        # 4. Get Target Value (if action is needed)
         recommendations = []
-        estimated_savings = 0.0
+        if predicted_action != 'maintain_parameters':
+            predicted_target = float(self._get_model('grinding_target_regressor').predict(input_df)[0])
 
-        if predicted_action != 'none':
-            # 3. Get DYNAMIC Target Value from REGRESSOR
-            predicted_target = self.grinding_regressor.predict(input_df)[0]
-
-            action_details = {
-                'Optimize mill speed and grinding media': {'savings': 0.12, 'param': 'energy_consumption'},
-                'Adjust separator settings': {'savings': 0.05, 'param': 'product_fineness'}
+            param_map = {
+                'Optimize mill speed and grinding media': 'specific_energy',
+                'Adjust separator settings': 'product_fineness',
+                'ALERT: Inspect mill for high vibration': 'vibration_level',
+                'Adjust separator settings, energy high': 'product_fineness'
             }
-            estimated_savings = action_details.get(predicted_action, {}).get('savings', 0.0)
-            parameter = action_details.get(predicted_action, {}).get('param', 'N/A')
-            current_val = getattr(data, parameter)
+            parameter = param_map.get(predicted_action, 'N/A')
+            current_val = input_df[parameter].iloc[0] # Get value from the DataFrame
 
             recommendations.append(OptimizationRecommendation(
                 parameter=parameter,
                 action=predicted_action,
                 current_value=current_val,
-                target_value=float(predicted_target),
+                target_value=predicted_target,
                 impact=f"Dynamic adjustment based on live data.",
                 priority=OptimizationLevel.HIGH if confidence > 0.8 else OptimizationLevel.MEDIUM,
-                estimated_savings=estimated_savings,
+                estimated_savings=predicted_energy,
                 implementation_time=30
             ))
 
-        # 4. Calculate DYNAMIC summary scores
-        expected_improvement = estimated_savings * confidence
-
+        # 5. Calculate DYNAMIC summary scores
+        expected_improvement = (predicted_energy + predicted_quality) / 2.0
+        
         result = OptimizationResult(
             timestamp=datetime.now(),
             process=ProcessType.GRINDING,
             recommendations=recommendations,
-            expected_improvement=expected_improvement,
+            expected_improvement=expected_improvement * confidence,
             confidence_score=confidence,
-            energy_savings=estimated_savings,
-            quality_improvement=0.08 * confidence,
-            sustainability_score=0.80 * confidence
+            energy_savings=predicted_energy,
+            quality_improvement=predicted_quality,
+            sustainability_score=predicted_sustain
         )
         
         self.optimization_history.append(result)
         return result    
     
     async def optimize_clinkerization(self, data: ClinkerizationData) -> OptimizationResult:
-        """Optimize clinkerization process for energy and quality"""
-        if not self.clinkerization_model:
-            raise RuntimeError("Clinkerization optimization model is not available.")
-
+        """Optimize clinkerization process (New Ideology)"""
+        
         # 1. Prepare input data
         input_df = pd.DataFrame([data.model_dump()])[self.clinkerization_features]
 
-        # 2. Get Action and Confidence from CLASSIFIER
-        probabilities = self.clinkerization_model.predict_proba(input_df)[0]
+        # 2. Get Action from CLASSIFIER (Diagnosis)
+        classifier = self._get_model('clinkerization_model')
+        encoder = self._get_model('clinkerization_encoder')
+        probabilities = classifier.predict_proba(input_df)[0]
         confidence = float(np.max(probabilities))
         action_encoded = np.argmax(probabilities)
-        predicted_action = self.clinkerization_encoder.inverse_transform([action_encoded])[0]
+        predicted_action = encoder.inverse_transform([action_encoded])[0]
         
         logger.info(f"AI Clinkerization Prediction: '{predicted_action}' with {confidence:.2%} confidence.")
 
+        # 3. DYNAMICALLY PREDICT KPIs
+        predicted_energy = float(self._get_model('clinkerization_energy_regressor').predict(input_df)[0])
+        predicted_quality = float(self._get_model('clinkerization_quality_regressor').predict(input_df)[0])
+        predicted_sustain = float(self._get_model('clinkerization_sustainability_regressor').predict(input_df)[0])
+        
+        if predicted_action == 'maintain_parameters':
+            predicted_energy = 0.0
+            predicted_quality = 0.0
+
+        # 4. Get Target Value (if action is needed)
         recommendations = []
-        estimated_savings = 0.0
+        if predicted_action != 'maintain_parameters':
+            predicted_target = float(self._get_model('clinkerization_target_regressor').predict(input_df)[0])
 
-        if predicted_action != 'none':
-            # 3. Get DYNAMIC Target Value from REGRESSOR
-            predicted_target = self.clinkerization_regressor.predict(input_df)[0]
-
-            action_details = {
-                'Reduce temperature by 20-30°C': {'savings': 0.10, 'param': 'kiln_temperature'},
-                'Increase alternative fuel usage': {'savings': 0.18, 'param': 'alternative_fuel_ratio'}
+            param_map = {
+                'Reduce temperature by 20-30°C': 'kiln_temperature',
+                'Increase alternative fuel usage': 'alternative_fuel_ratio',
+                'CRITICAL: Stabilize kiln, clinker quality low': 'clinker_quality',
+                'Optimize fuel mix: Increase alt fuel, reduce temp': 'alternative_fuel_ratio'
             }
-            estimated_savings = action_details.get(predicted_action, {}).get('savings', 0.0)
-            parameter = action_details.get(predicted_action, {}).get('param', 'N/A')
+            parameter = param_map.get(predicted_action, 'N/A')
             current_val = getattr(data, parameter)
 
             recommendations.append(OptimizationRecommendation(
                 parameter=parameter,
                 action=predicted_action,
                 current_value=current_val,
-                target_value=float(predicted_target),
+                target_value=predicted_target,
                 impact=f"Dynamic adjustment based on live data.",
                 priority=OptimizationLevel.CRITICAL if confidence > 0.9 else OptimizationLevel.HIGH,
-                estimated_savings=estimated_savings,
+                estimated_savings=predicted_energy,
                 implementation_time=60 
             ))
 
-        # 4. Calculate DYNAMIC summary scores
-        expected_improvement = estimated_savings * confidence
+        # 5. Calculate DYNAMIC summary scores
+        expected_improvement = (predicted_energy + predicted_quality) / 2.0
 
         result = OptimizationResult(
             timestamp=datetime.now(),
             process=ProcessType.CLINKERIZATION,
             recommendations=recommendations,
-            expected_improvement=expected_improvement,
+            expected_improvement=expected_improvement * confidence,
             confidence_score=confidence,
-            energy_savings=estimated_savings,
-            quality_improvement=0.06 * confidence,
-            sustainability_score=0.85 * confidence
+            energy_savings=predicted_energy,
+            quality_improvement=predicted_quality,
+            sustainability_score=predicted_sustain
         )
         
         self.optimization_history.append(result)
         return result
     
     async def optimize_quality(self, data: QualityData) -> OptimizationResult:
-        """Optimize product quality consistency"""
-        if not self.quality_model:
-            raise RuntimeError("Quality optimization model is not available.")
+        """Optimize product quality consistency (New Ideology)"""
 
-        # 1. ROBUST DATA PREPARATION
+        # 1. Prepare input data
         input_data = data.model_dump()
-        input_series = pd.Series(input_data)
-        input_df = input_series.to_frame().T
-        # The variable name was 'quality_feature_names' in your __init__
-        input_df = input_df[self.quality_feature_names] 
-        input_df = input_df.astype(float)
+        input_df = pd.DataFrame([input_data])[self.quality_features]
 
-        # 2. Get Action and Confidence from CLASSIFIER
-        probabilities = self.quality_model.predict_proba(input_df)[0]
+        # 2. Get Action from CLASSIFIER (Diagnosis)
+        classifier = self._get_model('quality_model')
+        encoder = self._get_model('quality_encoder')
+        probabilities = classifier.predict_proba(input_df)[0]
         confidence = float(np.max(probabilities))
         action_encoded = np.argmax(probabilities)
-        predicted_action = self.quality_encoder.inverse_transform([action_encoded])[0]
+        predicted_action = encoder.inverse_transform([action_encoded])[0]
         
         logger.info(f"AI Quality Prediction: '{predicted_action}' with {confidence:.2%} confidence.")
 
+        # 3. DYNAMICALLY PREDICT KPIs
+        predicted_energy = float(self._get_model('quality_energy_regressor').predict(input_df)[0])
+        predicted_quality = float(self._get_model('quality_quality_regressor').predict(input_df)[0])
+        predicted_sustain = float(self._get_model('quality_sustainability_regressor').predict(input_df)[0])
+        
+        if predicted_action == 'maintain_parameters':
+            predicted_energy = 0.0
+            predicted_quality = 0.0
+
+        # 4. Get Target Value (if action is needed)
         recommendations = []
-        estimated_savings = 0.0
+        if predicted_action != 'maintain_parameters':
+            predicted_target = float(self._get_model('quality_target_regressor').predict(input_df)[0])
 
-        if predicted_action != 'none':
-            # 3. Get DYNAMIC Target Value from REGRESSOR
-            predicted_target = self.quality_regressor.predict(input_df)[0]
-
-            # In this case, 'savings' refers to cost reduction from avoiding off-spec product
-            action_details = {
-                'Implement real-time quality monitoring': {'savings': 0.15, 'param': 'compressive_strength'}
+            param_map = {
+                'Reduce gypsum dosing': 'gypsum_added',
+                'Increase gypsum dosing': 'gypsum_added',
+                'Adjust gypsum for low strength': 'gypsum_added'
             }
-            estimated_savings = action_details.get(predicted_action, {}).get('savings', 0.0)
-            parameter = action_details.get(predicted_action, {}).get('param', 'N/A')
-            # We use compressive strength as a proxy for the current value indicator
+            parameter = param_map.get(predicted_action, 'N/A')
             current_val = getattr(data, parameter)
 
             recommendations.append(OptimizationRecommendation(
                 parameter=parameter,
                 action=predicted_action,
                 current_value=current_val,
-                target_value=float(predicted_target),
+                target_value=predicted_target,
                 impact="Improve quality consistency and reduce off-spec product.",
                 priority=OptimizationLevel.HIGH,
-                estimated_savings=estimated_savings,
+                estimated_savings=predicted_energy,
                 implementation_time=90
             ))
 
-        # 4. Calculate DYNAMIC summary scores
-        expected_improvement = estimated_savings * confidence
+        # 5. Calculate DYNAMIC summary scores
+        expected_improvement = (predicted_energy + predicted_quality) / 2.0
 
         result = OptimizationResult(
             timestamp=datetime.now(),
             process=ProcessType.QUALITY,
             recommendations=recommendations,
-            expected_improvement=expected_improvement,
+            expected_improvement=expected_improvement * confidence,
             confidence_score=confidence,
-            energy_savings=0, # This optimization is quality-focused
-            quality_improvement=expected_improvement,
-            sustainability_score=0.70 * confidence
+            energy_savings=predicted_energy, 
+            quality_improvement=predicted_quality,
+            sustainability_score=predicted_sustain
         )
         
         self.optimization_history.append(result)
         return result
     
     async def get_plant_status(self) -> Dict[str, Any]:
-        """Get overall plant status"""
-        if not self.optimization_history:
-            return {
-                "timestamp": datetime.now(),
-                "overall_efficiency": 0.82,
-                "energy_consumption": 2000.0,
-                "quality_score": 0.85,
-                "sustainability_score": 0.75,
-                "active_recommendations": 0,
-                "critical_alerts": 0
-            }
+        """Get overall plant status based on recent history"""
         
+        # Return a sensible default if no history exists
+        default_status = {
+            "timestamp": datetime.now(),
+            "overall_efficiency": 0.82,
+            "energy_consumption": 2000.0, # This is a placeholder, could be a live value
+            "quality_score": 0.85,
+            "sustainability_score": 0.75,
+            "active_recommendations": 0,
+            "critical_alerts": 0
+        }
+
+        if not self.optimization_history:
+            return default_status
+        
+        # Get results from the last hour
         recent_results = [r for r in self.optimization_history 
                          if (datetime.now() - r.timestamp).total_seconds() < 3600]
         
         if not recent_results:
+            # If no recent results, return last known status or default
+            last_result = self.optimization_history[-1]
             return {
-                "timestamp": datetime.now(),
-                "overall_efficiency": 0.82,
-                "energy_consumption": 2000.0,
-                "quality_score": 0.85,
-                "sustainability_score": 0.75,
+                "timestamp": last_result.timestamp,
+                "overall_efficiency": last_result.expected_improvement,
+                "energy_consumption": 2000.0, # Placeholder
+                "quality_score": last_result.quality_improvement,
+                "sustainability_score": last_result.sustainability_score,
                 "active_recommendations": 0,
                 "critical_alerts": 0
             }
         
-        overall_efficiency = np.mean([r.expected_improvement for r in recent_results])
-        energy_consumption = np.mean([r.energy_savings for r in recent_results])
-        quality_score = np.mean([r.quality_improvement for r in recent_results])
+        # Aggregate recent results
+        overall_efficiency = np.mean([r.expected_improvement for r in recent_results if r.expected_improvement > 0])
+        quality_score = np.mean([r.quality_improvement for r in recent_results if r.quality_improvement > 0])
         sustainability_score = np.mean([r.sustainability_score for r in recent_results])
         
         active_recommendations = sum(len(r.recommendations) for r in recent_results)
@@ -366,12 +420,10 @@ class CementPlantOptimizer:
         
         return {
             "timestamp": datetime.now(),
-            "overall_efficiency": float(overall_efficiency),
-            "energy_consumption": float(energy_consumption),
-            "quality_score": float(quality_score),
-            "sustainability_score": float(sustainability_score),
+            "overall_efficiency": float(overall_efficiency) if not np.isnan(overall_efficiency) else 0.82,
+            "energy_consumption": 2000.0, # Placeholder
+            "quality_score": float(quality_score) if not np.isnan(quality_score) else 0.85,
+            "sustainability_score": float(sustainability_score) if not np.isnan(sustainability_score) else 0.75,
             "active_recommendations": active_recommendations,
             "critical_alerts": critical_alerts
         }
-
-

@@ -199,6 +199,12 @@ class QualityData(BaseModel):
         le=100.0,
         example=65.0 # Curing humidity in percent
     )
+    gypsum_added: float = Field(
+        ..., 
+        ge=0.0, 
+        le=10.0,
+        example=4.5
+    )
 
 class OptimizationRecommendation(BaseModel):
     parameter: str = Field(
