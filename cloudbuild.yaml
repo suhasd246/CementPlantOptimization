@@ -22,7 +22,12 @@ steps:
   # --- Push API Image ---
   - name: 'gcr.io/cloud-builders/docker'
     id: Push API Image
-    args: ['push', 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api']
+    args:
+      [
+        'push',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:${_TAG}',
+      ]
+    waitFor: ['Build API Image']
 
   # --- Deploy API to Cloud Run ---
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -60,7 +65,12 @@ steps:
   # --- Push Dashboard Image ---
   - name: 'gcr.io/cloud-builders/docker'
     id: Push Dashboard Image
-    args: ['push', 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard']
+    args:
+      [
+        'push',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:${_TAG}',
+      ]
+    waitFor: ['Build Dashboard Image']
 
   # --- Deploy Dashboard to Cloud Run ---
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -80,7 +90,7 @@ steps:
       ]
     waitFor: ['Push Dashboard Image']
 
-# --- Images to Push ---
+# --- Images to Push (optional metadata) ---
 images:
   - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:${_TAG}'
   - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:latest'
@@ -91,7 +101,7 @@ timeout: '1800s'
 
 # --- Substitutions ---
 substitutions:
-  _REGION_CODE: 'uc'              
-  _SERVICE_HASH: '752070054477'   
+  _REGION_CODE: 'uc'               # shorthand for us-central1
+  _SERVICE_HASH: '752070054477'    # project numeric ID part in URL
   _GOOGLE_API_KEY: 'AIzaSyBfE1HM0qVu0Vw1wa6xJKTmNtP9xQJBiQc'
-  _TAG: 'manualbuild'           
+  _TAG: 'manualbuild'              # tag used for consistent deploy
