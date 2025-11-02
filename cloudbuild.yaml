@@ -11,7 +11,7 @@ steps:
       [
         'build',
         '-t',
-        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:$COMMIT_SHA',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:${_TAG}',
         '-t',
         'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:latest',
         '-f',
@@ -33,11 +33,10 @@ steps:
         'run',
         'deploy',
         'cement-api',
-        '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:$COMMIT_SHA',
+        '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:${_TAG}',
         '--region=us-central1',
         '--platform=managed',
         '--allow-unauthenticated',
-        # Ideally, use Secret Manager instead of inline keys
         '--set-env-vars=GOOGLE_API_KEY=${_GOOGLE_API_KEY}',
         '--quiet',
       ]
@@ -50,7 +49,7 @@ steps:
       [
         'build',
         '-t',
-        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:$COMMIT_SHA',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:${_TAG}',
         '-t',
         'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:latest',
         '-f',
@@ -72,7 +71,7 @@ steps:
         'run',
         'deploy',
         'cement-dashboard',
-        '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:$COMMIT_SHA',
+        '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:${_TAG}',
         '--region=us-central1',
         '--platform=managed',
         '--allow-unauthenticated',
@@ -83,15 +82,16 @@ steps:
 
 # --- Images to Push ---
 images:
-  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:$COMMIT_SHA'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:${_TAG}'
   - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:latest'
-  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:$COMMIT_SHA'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:${_TAG}'
   - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:latest'
 
 timeout: '1800s'
 
 # --- Substitutions ---
 substitutions:
-  _REGION_CODE: 'uc'               # shorthand for us-central1
-  _SERVICE_HASH: '752070054477'    # project numeric hash (from API URL)
+  _REGION_CODE: 'uc'              
+  _SERVICE_HASH: '752070054477'   
   _GOOGLE_API_KEY: 'AIzaSyBfE1HM0qVu0Vw1wa6xJKTmNtP9xQJBiQc'
+  _TAG: 'manualbuild'           
