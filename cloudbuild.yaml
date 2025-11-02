@@ -1,4 +1,7 @@
-# Cloud Build configuration for Cement Plant Optimization App (API & Dashboard)
+# -------------------------------------------------------
+# Cloud Build configuration for Cement Plant Optimization
+# (Builds and deploys API + Dashboard to Cloud Run)
+# -------------------------------------------------------
 
 steps:
   # --- Build API Image ---
@@ -8,9 +11,9 @@ steps:
       [
         'build',
         '-t',
-        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/api:$COMMIT_SHA',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:$COMMIT_SHA',
         '-t',
-        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/api:latest',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:latest',
         '-f',
         'api.Dockerfile',
         '.',
@@ -19,7 +22,7 @@ steps:
   # --- Push API Image ---
   - name: 'gcr.io/cloud-builders/docker'
     id: Push API Image
-    args: ['push', 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/api']
+    args: ['push', 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api']
 
   # --- Deploy API to Cloud Run ---
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -30,12 +33,12 @@ steps:
         'run',
         'deploy',
         'cement-api',
-        '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/api:$COMMIT_SHA',
-        '--region=us-central1', 
+        '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:$COMMIT_SHA',
+        '--region=us-central1',
         '--platform=managed',
-        '--allow-unauthenticated', 
-        # Use Secret Manager instead (see notes below)
-        '--set-env-vars=GOOGLE_API_KEY=AIzaSyBfE1HM0qVu0Vw1wa6xJKTmNtP9xQJBiQc', 
+        '--allow-unauthenticated',
+        # Ideally, use Secret Manager instead of inline keys
+        '--set-env-vars=GOOGLE_API_KEY=${_GOOGLE_API_KEY}',
         '--quiet',
       ]
     waitFor: ['Push API Image']
@@ -47,9 +50,9 @@ steps:
       [
         'build',
         '-t',
-        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/dashboard:$COMMIT_SHA',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:$COMMIT_SHA',
         '-t',
-        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/dashboard:latest',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:latest',
         '-f',
         'dashboard.Dockerfile',
         '.',
@@ -58,7 +61,7 @@ steps:
   # --- Push Dashboard Image ---
   - name: 'gcr.io/cloud-builders/docker'
     id: Push Dashboard Image
-    args: ['push', 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/dashboard']
+    args: ['push', 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard']
 
   # --- Deploy Dashboard to Cloud Run ---
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -68,30 +71,27 @@ steps:
       [
         'run',
         'deploy',
-        'cement-dashboard', # <-- Your service name from the command
-        '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/dashboard:$COMMIT_SHA',
-        '--region=us-central1', # <-- Your region from the command
+        'cement-dashboard',
+        '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:$COMMIT_SHA',
+        '--region=us-central1',
         '--platform=managed',
-        '--allow-unauthenticated', # <-- Flag from your command
-        # Set the API_URL environment variable dynamically
-        # It assumes your API service URL follows the pattern: service-name-hash-region.a.run.app
-        # Alternatively, replace with the static URL if preferred: '--set-env-vars=API_URL=https://cement-api-752070054477.us-central1.run.app'
-        '--set-env-vars=API_URL=https://cement-api-${_SERVICE_HASH}-${_REGION_CODE}.a.run.app', # <-- Dynamic URL using substitutions (see below)
+        '--allow-unauthenticated',
+        '--set-env-vars=API_URL=https://cement-api-${_SERVICE_HASH}-${_REGION_CODE}.a.run.app',
         '--quiet',
       ]
     waitFor: ['Push Dashboard Image']
 
-# Specify images to push
+# --- Images to Push ---
 images:
-  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/api:$COMMIT_SHA'
-  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/api:latest'
-  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/dashboard:$COMMIT_SHA'
-  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/dashboard:latest'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:$COMMIT_SHA'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:latest'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:$COMMIT_SHA'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:latest'
 
 timeout: '1800s'
 
-# Define substitutions used in the steps above
+# --- Substitutions ---
 substitutions:
-  _REGION_CODE: 'uc' # Code for us-central1 used in Cloud Run URLs
-  # You might need to retrieve this hash dynamically or hardcode it if it's stable
-  _SERVICE_HASH: '752070054477' # The unique hash part of your API service URL
+  _REGION_CODE: 'uc'               # shorthand for us-central1
+  _SERVICE_HASH: '752070054477'    # project numeric hash (from API URL)
+  _GOOGLE_API_KEY: 'AIzaSyBfE1HM0qVu0Vw1wa6xJKTmNtP9xQJBiQc'
