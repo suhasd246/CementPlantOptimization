@@ -1,36 +1,97 @@
+# -------------------------------------------------------
+# Cloud Build configuration for Cement Plant Optimization
+# (Builds and deploys API + Dashboard to Cloud Run)
+# -------------------------------------------------------
+
 steps:
-# Step 1: Build the API Docker image
-- name: 'gcr.io/cloud-builders/docker'
-  args: [
-    'build',
-    '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/cementplantoptimization/cement-api:latest',
-    '-f', 'api.Dockerfile',
-    '.'
-  ]
+  # --- Build API Image ---
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Build API Image
+    args:
+      [
+        'build',
+        '-t',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:$COMMIT_SHA',
+        '-t',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:latest',
+        '-f',
+        'api.Dockerfile',
+        '.',
+      ]
 
-# Step 2: Push the API Docker image to Artifact Registry
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/cementplantoptimization/cement-api:latest']
+  # --- Push API Image ---
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Push API Image
+    args: ['push', 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api']
 
-# Step 3: Build the Dashboard Docker image
-- name: 'gcr.io/cloud-builders/docker'
-  args: [
-    'build',
-    '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/cementplantoptimization/cement-dashboard:latest',
-    '-f', 'dashboard.Dockerfile',
-    '.'
-  ]
+  # --- Deploy API to Cloud Run ---
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: Deploy API Service
+    entrypoint: gcloud
+    args:
+      [
+        'run',
+        'deploy',
+        'cement-api',
+        '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:$COMMIT_SHA',
+        '--region=us-central1',
+        '--platform=managed',
+        '--allow-unauthenticated',
+        # Ideally, use Secret Manager instead of inline keys
+        '--set-env-vars=GOOGLE_API_KEY=${_GOOGLE_API_KEY}',
+        '--quiet',
+      ]
+    waitFor: ['Push API Image']
 
-# Step 4: Push the Dashboard Docker image to Artifact Registry
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/cementplantoptimization/cement-dashboard:latest']
+  # --- Build Dashboard Image ---
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Build Dashboard Image
+    args:
+      [
+        'build',
+        '-t',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:$COMMIT_SHA',
+        '-t',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:latest',
+        '-f',
+        'dashboard.Dockerfile',
+        '.',
+      ]
 
+  # --- Push Dashboard Image ---
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Push Dashboard Image
+    args: ['push', 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard']
+
+  # --- Deploy Dashboard to Cloud Run ---
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: Deploy Dashboard Service
+    entrypoint: gcloud
+    args:
+      [
+        'run',
+        'deploy',
+        'cement-dashboard',
+        '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:$COMMIT_SHA',
+        '--region=us-central1',
+        '--platform=managed',
+        '--allow-unauthenticated',
+        '--set-env-vars=API_URL=https://cement-api-${_SERVICE_HASH}-${_REGION_CODE}.a.run.app',
+        '--quiet',
+      ]
+    waitFor: ['Push Dashboard Image']
+
+# --- Images to Push ---
 images:
-- '$_REGION-docker.pkg.dev/$PROJECT_ID/cementplantoptimization/cement-api:latest'
-- '$_REGION-docker.pkg.dev/$PROJECT_ID/cementplantoptimization/cement-dashboard:latest'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:$COMMIT_SHA'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-api:latest'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:$COMMIT_SHA'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cement-repo/cement-dashboard:latest'
 
+timeout: '1800s'
+
+# --- Substitutions ---
 substitutions:
-  _REGION: 'asia-south1'
-
-options:
-  logging: CLOUD_LOGGING_ONLY
+  _REGION_CODE: 'uc'               # shorthand for us-central1
+  _SERVICE_HASH: '752070054477'    # project numeric hash (from API URL)
+  _GOOGLE_API_KEY: 'AIzaSyBfE1HM0qVu0Vw1wa6xJKTmNtP9xQJBiQc'
